@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNC Toolpath Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1 {
+            color: #2c3e50;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .card {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="file"], input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        .progress-container {
+            position: relative;
+            height: 20px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        .progress-bar {
+            position: absolute;
+            height: 100%;
+            background-color: #2ecc71;
+            width: 0;
+            transition: width 0.3s;
+        }
+        .output {
+            height: 300px;
+            overflow-y: auto;
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .visualization {
+            height: 400px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .tab {
+            padding: 10px 15px;
+            background-color: #ecf0f1;
+            cursor: pointer;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background-color: #3498db;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        summary {
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        details {
+            margin-bottom: 15px;
+        }
+        .download-btn {
+            background-color: #27ae60;
+        }
+        .download-btn:hover {
+            background-color: #2ecc71;
+        }
+        .file-info {
+            margin-top: 10px;
+            font-style: italic;
+        }
+        .error {
+            color: #c0392b;
+            font-weight: bold;
+        }
+        .visualization-img {
+        max-width: 100%;
+        height: auto;
+        margin: 10px 0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    .console-output {
+        white-space: pre-wrap;
+        font-family: monospace;
+        background: #f5f5f5;
+        padding: 10px;
+        margin-top: 20px;
+    }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>CNC Toolpath Generator</h1>
+        <p>Upload an STL file to generate optimized CNC toolpaths and GCode</p>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h2>Input Parameters</h2>
+            <form id="toolpath-form">
+                <div class="form-group">
+                    <label for="stl-file">Upload STL File:</label>
+                    <input type="file" id="stl-file" accept=".stl" required>
+                    <div class="file-info" id="file-info"></div>
+                </div>
+                
+                <details>
+                    <summary>Advanced Parameters</summary>
+                    <div class="form-group">
+                        <label for="step">Theta Step Size (degrees):</label>
+                        <input type="number" id="step" name="step" value="0.01" step="0.01" min="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="threshold">Threshold (degrees):</label>
+                        <input type="number" id="threshold" name="threshold" value="0.01" step="0.01" min="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="error-threshold">Volume Error Threshold (%):</label>
+                        <input type="number" id="error-threshold" name="error_threshold" value="1.5" step="0.1" min="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label for="z-offset">Z Offset (mm):</label>
+                        <input type="number" id="z-offset" name="z_offset" value="20" step="1" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label for="rotation-factor">Rotation Factor:</label>
+                        <input type="number" id="rotation-factor" name="rotation_factor" value="400" step="1" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="x-margin">X Margin (mm):</label>
+                        <input type="number" id="x-margin" name="x_margin" value="50" step="1" min="0">
+                    </div>
+                </details>
+                
+                <button type="submit" id="generate-btn">Generate Toolpaths</button>
+            </form>
+            
+            <div class="progress-container" id="progress-container" style="display: none;">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+        </div>
+
+        <div class="card" id="results-card" style="display: none;">
+            <h2>Processing Results</h2>
+            <div class="tabs">
+                <div class="tab active" data-tab="output">Console Output</div>
+                <div class="tab" data-tab="gcode">GCode Preview</div>
+                <div class="tab" data-tab="visualizations">Visualizations</div>
+            </div>
+            
+            <!-- Add visualization tab content -->
+            <div class="tab-content" id="visualizations-tab">
+                <h3>Initial Volume</h3>
+                <img id="initial-plot" class="visualization-img">
+                <h3>Optimized Volume</h3>
+                <img id="optimized-plot" class="visualization-img">
+                <div class="console-output" id="full-console"></div>
+            </div>
+    
+            
+            <div class="tab-content active" id="output-tab">
+                <div class="output" id="output"></div>
+            </div>
+            
+            <div class="tab-content" id="gcode-tab">
+                <div class="output" id="gcode-preview"></div>
+                <button class="download-btn" id="download-gcode">Download GCode</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const form = document.getElementById('toolpath-form');
+            const fileInput = document.getElementById('stl-file');
+            const fileInfo = document.getElementById('file-info');
+            const generateBtn = document.getElementById('generate-btn');
+            const progressContainer = document.getElementById('progress-container');
+            const progressBar = document.getElementById('progress-bar');
+            const resultsCard = document.getElementById('results-card');
+            const output = document.getElementById('output');
+            const gcodePreview = document.getElementById('gcode-preview');
+            const downloadGcodeBtn = document.getElementById('download-gcode');
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            // Store processing data
+            let processingFile = '';
+            let statusCheckInterval = null;
+            
+            // Handle file selection
+            fileInput.addEventListener('change', function() {
+                if (this.files && this.files[0]) {
+                    const file = this.files[0];
+                    fileInfo.textContent = `Selected file: ${file.name} (${formatFileSize(file.size)})`;
+                    processingFile = file.name;
+                } else {
+                    fileInfo.textContent = '';
+                    processingFile = '';
+                }
+            });
+            
+            // Handle form submission
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                if (!fileInput.files || !fileInput.files[0]) {
+                    alert('Please select an STL file first.');
+                    return;
+                }
+                
+                // Get form data
+                const formData = new FormData(form);
+                formData.append('file', fileInput.files[0]);
+                
+                // Show progress
+                progressContainer.style.display = 'block';
+                generateBtn.disabled = true;
+                output.textContent = '';
+                gcodePreview.textContent = '';
+                resultsCard.style.display = 'block';
+                
+                // Send request to server
+                fetch('/process', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showError(data.error);
+                        return;
+                    }
+                    
+                    // Start checking status
+                    startStatusCheck();
+                })
+                .catch(error => {
+                    showError('Error: ' + error.message);
+                });
+            });
+            
+            // Handle tab switching
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Remove active class from all tabs and contents
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+                    
+                    // Add active class to current tab and content
+                    this.classList.add('active');
+                    const tabId = this.getAttribute('data-tab') + '-tab';
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+            
+            // Handle gcode download
+            downloadGcodeBtn.addEventListener('click', function() {
+                if (processingFile) {
+                    const gcodeFilename = processingFile.replace('.stl', '.gcode');
+                    window.location.href = `/download/${gcodeFilename}`;
+                } else {
+                    alert('No GCode available for download yet.');
+                }
+            });
+            
+            // Helper functions
+            function formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' bytes';
+                else if (bytes < 1048576) return (bytes / 1024).toFixed(2) + ' KB';
+                else return (bytes / 1048576).toFixed(2) + ' MB';
+            }
+            
+            function showError(message) {
+                output.innerHTML += `<div class="error">${message}</div>`;
+                generateBtn.disabled = false;
+                progressBar.style.width = '0%';
+                progressContainer.style.display = 'none';
+            }
+            
+            function startStatusCheck() {
+                if (statusCheckInterval) {
+                    clearInterval(statusCheckInterval);
+                }
+                
+                statusCheckInterval = setInterval(checkStatus, 1000);
+            }
+            
+            function checkStatus() {
+                fetch('/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        // Update progress bar
+                        progressBar.style.width = data.progress + '%';
+                        
+                        // Update log
+                        output.textContent = data.log.join('\n');
+                        output.scrollTop = output.scrollHeight;
+                        
+                        // Check if processing is complete
+                        if (data.status === 'complete') {
+                            clearInterval(statusCheckInterval);
+                            generateBtn.disabled = false;
+                            
+                            // Load GCode preview
+                            const gcodeFilename = processingFile.replace('.stl', '.gcode');
+                            fetch(`/preview/${gcodeFilename}`)
+                                .then(response => response.text())
+                                .then(text => {
+                                    gcodePreview.textContent = text;
+                                })
+                                .catch(error => {
+                                    console.error('Error loading GCode preview:', error);
+                                });
+                        }
+                        
+                        // Check if there was an error
+                        if (data.status === 'error') {
+                            clearInterval(statusCheckInterval);
+                            generateBtn.disabled = false;
+                            showError(data.error || 'Unknown error occurred');
+                        }
+                        if (data.initial_plot) {
+                            document.getElementById('initial-plot').src = `/get-image/initial?t=${Date.now()}`;
+                        }
+                        if (data.optimized_plot) {
+                            document.getElementById('optimized-plot').src = `/get-image/optimized?t=${Date.now()}`;
+                        }
+                        if (data.console_output) {
+                            document.getElementById('full-console').textContent = data.console_output;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking status:', error);
+                    });
+            }
+        });
+    </script>
+</body>
+</html>
